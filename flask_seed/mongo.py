@@ -8,6 +8,7 @@ from pymongo import ReturnDocument, uri_parser
 from pymongo.read_preferences import ReadPreference
 from flask_pymongo import PyMongo, BSONObjectIdConverter
 from flask_pymongo.wrappers import MongoClient, MongoReplicaSetClient
+from flask import current_app
 
 import six
 
@@ -17,7 +18,7 @@ DAY_FORMAT = '%Y%m%d'
 class MongoDB(PyMongo):
 
     def __init__(self, app=None, config_prefix='MONGO'):
-        super(MongoDriver, self).__init__(app, config_prefix)
+        super(MongoDB, self).__init__(app, config_prefix)
         self.col_classes = []
 
     def init_app(self, app, config_prefix='MONGO'):
@@ -189,8 +190,6 @@ class MongoDB(PyMongo):
         app.extensions['pymongo'][config_prefix] = (cx, db)
         app.url_map.converters['ObjectId'] = BSONObjectIdConverter
 
-        self.init_models(self)
-
     def init_db(self):
         self.init_indexes()
         self.init_ids()
@@ -204,7 +203,7 @@ class MongoDB(PyMongo):
                     continue
                 if 'expireAfterSeconds' in index:
                     col.create_index(index['name'], expireAfterSeconds=index[
-                                     'expireAfterSeconds'])
+                        'expireAfterSeconds'])
                 if 'unique' in index:
                     col.create_index(index['name'], unique=index['unique'])
         except pymongo.errors.CollectionInvalid:
@@ -223,13 +222,10 @@ class MongoDB(PyMongo):
                 dict(name='todo_serial_number', id=0, today=today)
             )
 
-    def register(self, model):
-        self.col_classes.append(model)
-        return model
-
-    def init_models(self):
-        for cls n self.col_classes:
-            setattr(self, cls.__name__, cls(self))
+    def register(self, models):
+        for model in models:
+            self.col_classes.append(model)
+            setattr(self, model.__name__, model())
 
     def get_id(self, collection):
         res = self.db.ids.find_one_and_update(
@@ -286,8 +282,8 @@ class BaseModel(object):
     required_fields = []
     dbref = {}
 
-    def __init__(self, mongodb):
-        self.collection = mongdb.db[self.__collection__]
+    def __init__(self):
+        self.collection = current_app.mongo.db[self.__collection__]
 
     def query(self, filter=None, sort=None, projection=None,
               skip=0, limit=0, **kwargs):
@@ -308,7 +304,7 @@ class BaseModel(object):
             return doc
 
     def create(self, new_doc):
-        new_doc['_id'] = db.get_id(self.__collection__)
+        new_doc['_id'] = current_app.mongo.get_id(self.__collection__)
         self.collection.insert_one(new_doc)
         return new_doc
 

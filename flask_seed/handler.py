@@ -1,13 +1,11 @@
 # coding=utf-8
 
-from flask import blueprints, make_response, request, jsonify
+from flask import blueprints, make_response, request, \
+    jsonify, current_app as app
 
-from plm_cloud import log as logging
-from plm_cloud import utils
-from plm_cloud.exceptions import HTTPNotFound, HTTPBadRequest, \
+from .exceptions import HTTPNotFound, HTTPBadRequest, \
     HTTPInternalServerError
-
-LOG = logging.getLogger(__name__)
+from .utils import parse_params, remove_dict_item, dumps, LOG
 
 
 class BaseHandler(object):
@@ -25,12 +23,12 @@ class BaseHandler(object):
     other_fields = []
     permissions = {}
 
-    def __init__(self, mongodb, blueprint_name=None):
+    def __init__(self, blueprint_name=None):
         if not blueprint_name:
             blueprint_name = self.member
         self.blueprint = blueprints.Blueprint(blueprint_name, __name__)
 
-        self._model = getattr(mongodb, self.model)
+        self._model = getattr(app.mongo, self.model)
 
         self.generate_url()
         self.handle_url_route()
@@ -49,15 +47,15 @@ class BaseHandler(object):
         return int(kwargs.get(key))
 
     def get_filter(self):
-        params = utils.parse_params()
-        limit = int(utils.remove_dict_item(params, 'limit', 0))
-        page = int(utils.remove_dict_item(params, 'page', 1))
-        per_page = int(utils.remove_dict_item(params, 'per_page', 0))
+        params = parse_params()
+        limit = int(remove_dict_item(params, 'limit', 0))
+        page = int(remove_dict_item(params, 'page', 1))
+        per_page = int(remove_dict_item(params, 'per_page', 0))
         if per_page:
             limit = per_page
         skip = (page - 1) * per_page
 
-        projection = utils.remove_dict_item(params, 'columns')
+        projection = remove_dict_item(params, 'columns')
         if projection:
             projection = projection.split(',')
         filter = params
@@ -102,7 +100,7 @@ class BaseHandler(object):
         if request.method == 'HEAD':
             response = make_response()
         else:
-            response = make_response(utils.dumps(resources))
+            response = make_response(dumps(resources))
         response.headers['Total'] = total
         return response
 
@@ -124,7 +122,7 @@ class BaseHandler(object):
         try:
             new_resource = self._model.create(resource)
         except Exception as e:
-            LOG.error(e)
+            app.logger.error(e)
             msg = 'Cannot create {0}, {1}.'.format(self.member, str(e))
             raise HTTPInternalServerError(msg)
         else:
@@ -147,7 +145,7 @@ class BaseHandler(object):
             new_resource = self._model.update(resource_id, resource,
                                               projection=projection)
         except Exception as e:
-            LOG.error(str(e))
+            app.logger.error(str(e))
             msg = 'Cannot update {0}, {1}.'.format(self.member, str(e))
             raise HTTPInternalServerError(msg)
         else:
@@ -168,7 +166,7 @@ class BaseHandler(object):
         try:
             self._model.delete(resource_id)
         except Exception as e:
-            LOG.error(e)
+            app.logger.error(e)
             msg = 'Delete {0} failed, {1}'.format(self.member, str(e))
             raise HTTPInternalServerError(msg)
         else:
@@ -179,23 +177,12 @@ class BaseHandler(object):
             methods = ['GET']
         self.blueprint.add_url_rule(url, view_func=view_func, methods=methods)
 
-    def wrap_methods_with_permissions(self, permissions):
-        for method_name, permission in permissions.iteritems():
-            method = getattr(self, method_name)
-            if method:
-                if isinstance(permission, list):
-                    method = utils.permission_required(*permission)(method)
-                else:
-                    method = utils.permission_required(permission)(method)
-                setattr(self, method_name, method)
-
     def handle_url_route(self):
-        self.wrap_methods_with_permissions(self.permissions)
         self.route(self.set_url, self.on_all, methods=['GET', 'HEAD'])
         self.route(self.member_url, self.on_get)
-        log_create = utils.log(LOG, 'Create {}'.format(self.member))
-        log_update = utils.log(LOG, 'Update {}'.format(self.member))
-        log_delete = utils.log(LOG, 'Delete {}'.format(self.member))
+        log_create = LOG(app.logger, 'Create {}'.format(self.member))
+        log_update = LOG(app.logger, 'Update {}'.format(self.member))
+        log_delete = LOG(app.logger, 'Delete {}'.format(self.member))
         self.route(self.set_url, log_create(self.on_create), ['POST'])
         self.route(self.member_url, log_update(self.on_update), ['POST'])
         self.route(self.member_url, log_delete(self.on_delete), ['DELETE'])

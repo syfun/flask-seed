@@ -4,22 +4,22 @@ Flask-Seed
 
 This is the description for that library
 """
-from setuptools import setup
+from setuptools import setup, find_packages
 
 
 setup(
     name='Flask-Seed',
     version='0.1',
-    url='http://example.com/flask-seed/',
+    url='http://example.com/flask_seed/',
     license='MIT',
     author='syfun',
     author_email='sunyu418@gmail.com',
     description='Flask simple seed with mongodb.',
     long_description=__doc__,
-    py_modules=['flask_seed'],
+    # py_modules=['flask_seed'],
     # if you would be using a package instead use packages instead
     # of py_modules:
-    # packages=['flask_seed'],
+    packages=find_packages(),
     zip_safe=False,
     include_package_data=True,
     platforms='any',
