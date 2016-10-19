@@ -3,9 +3,9 @@
 from flask import blueprints, make_response, request, \
     jsonify, current_app as app
 
-from .exceptions import HTTPNotFound, HTTPBadRequest, \
+from flask_seed.exceptions import HTTPNotFound, HTTPBadRequest, \
     HTTPInternalServerError
-from .utils import parse_params, remove_dict_item, dumps, LOG
+from flask_seed.utils import parse_params, remove_dict_item, dumps, LOG
 
 
 class BaseHandler(object):
@@ -28,7 +28,7 @@ class BaseHandler(object):
             blueprint_name = self.member
         self.blueprint = blueprints.Blueprint(blueprint_name, __name__)
 
-        self._model = getattr(app.mongo, self.model)
+        self._model = getattr(app.db_driver, self.model)
 
         self.generate_url()
         self.handle_url_route()
@@ -180,9 +180,9 @@ class BaseHandler(object):
     def handle_url_route(self):
         self.route(self.set_url, self.on_all, methods=['GET', 'HEAD'])
         self.route(self.member_url, self.on_get)
-        log_create = LOG(app.logger, 'Create {}'.format(self.member))
-        log_update = LOG(app.logger, 'Update {}'.format(self.member))
-        log_delete = LOG(app.logger, 'Delete {}'.format(self.member))
+        log_create = LOG('Create {}'.format(self.member))
+        log_update = LOG('Update {}'.format(self.member))
+        log_delete = LOG('Delete {}'.format(self.member))
         self.route(self.set_url, log_create(self.on_create), ['POST'])
         self.route(self.member_url, log_update(self.on_update), ['POST'])
         self.route(self.member_url, log_delete(self.on_delete), ['DELETE'])

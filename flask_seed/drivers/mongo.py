@@ -15,10 +15,10 @@ import six
 DAY_FORMAT = '%Y%m%d'
 
 
-class MongoDB(PyMongo):
+class MongoDriver(PyMongo):
 
     def __init__(self, app=None, config_prefix='MONGO'):
-        super(MongoDB, self).__init__(app, config_prefix)
+        super(MongoDriver, self).__init__(app, config_prefix)
         self.col_classes = []
 
     def init_app(self, app, config_prefix='MONGO'):
@@ -198,7 +198,7 @@ class MongoDB(PyMongo):
         try:
             for cls in self.col_classes:
                 col = self.db[cls.__collection__]
-                index = cls._index
+                index = cls.indexes
                 if not index:
                     continue
                 if 'expireAfterSeconds' in index:
@@ -259,7 +259,7 @@ class MongoDB(PyMongo):
             return today + '0001'
 
 
-class BaseModel(object):
+class MongoBase(object):
     """Base class for mongodb collection.
 
     In subclass need define _collection and _required_keys.
@@ -278,12 +278,12 @@ class BaseModel(object):
     """
 
     __collection__ = ''
-    _index = {}
+    indexes = {}
     required_fields = []
     dbref = {}
 
     def __init__(self):
-        self.collection = current_app.mongo.db[self.__collection__]
+        self.collection = current_app.db_driver.db[self.__collection__]
 
     def query(self, filter=None, sort=None, projection=None,
               skip=0, limit=0, **kwargs):
@@ -304,7 +304,7 @@ class BaseModel(object):
             return doc
 
     def create(self, new_doc):
-        new_doc['_id'] = current_app.mongo.get_id(self.__collection__)
+        new_doc['_id'] = current_app.db_driver.get_id(self.__collection__)
         self.collection.insert_one(new_doc)
         return new_doc
 
