@@ -222,6 +222,9 @@ class MongoDriver(PyMongo):
                 dict(name='todo_serial_number', id=0, today=today)
             )
 
+    def drop_db(self):
+        self.cx.drop_database(self.db)
+
     def register(self, models):
         for model in models:
             self.col_classes.append(model)

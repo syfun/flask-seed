@@ -32,12 +32,12 @@ class Seed(object):
         db_driver = app.config.get(key('DB_DRIVER'), None)
         if db_driver:
             try:
-                self.db_driver, base_model = get_db_driver(db_driver)
+                db_driver, base_model = get_db_driver(db_driver)
             except RuntimeError as exc:
                 raise
             else:
                 globals()['BaseModel'] = base_model
-                self.db_driver.init_app(app)
+                self.db_driver = db_driver(app)
         else:
             self.db_driver = None
         if not getattr(app, 'db_driver', None):
@@ -67,20 +67,9 @@ class Seed(object):
             for h in handlers:
                 self.app.register_blueprint(h().blueprint, **options)
 
-    def runserver(self, host='127.0.0.1', port=5000):
-        @run_with_reloader
-        def run():
-            if self.app.debug:
-                self.app = DebuggedApplication(self.app)
-            http_server = WSGIServer(
-                (host, port),
-                self.app
-            )
-            http_server.serve_forever()
-        return run
-
 
 class Set(object):
+
     def __init__(self):
         self.items = []
 

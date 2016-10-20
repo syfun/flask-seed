@@ -6,8 +6,8 @@ from .sql import SQLDriver, SQLBase
 
 def get_db_driver(name):
     if name == 'mongo':
-        return MongoDriver(), MongoBase
+        return MongoDriver, MongoBase
     elif name == 'sql':
-        return SQLDriver(), SQLBase
+        return SQLDriver, SQLBase
     else:
         raise RuntimeError('{} is not correct db driver name.'.format(name))
